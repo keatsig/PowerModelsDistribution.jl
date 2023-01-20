@@ -2,7 +2,7 @@
 
 ## staged
 
-- none
+- Fixed bug in switch modeling for SOC formulation [#423](https://github.com/lanl-ansi/PowerModelsDistribution.jl/issues/423)
 
 ## v0.14.5
 

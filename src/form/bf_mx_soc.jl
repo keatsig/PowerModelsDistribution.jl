@@ -217,3 +217,28 @@ function constraint_mc_transformer_power_dy(pm::SOCUBFModels, nw::Int, trans_id:
     JuMP.@constraint(pm.model, LinearAlgebra.diag(Tt*Xtr) + p_to .== 0)
     JuMP.@constraint(pm.model, LinearAlgebra.diag(Tt*Xti) + q_to .== 0)
 end
+
+
+function constraint_mc_switch_state_open(pm::SOCUBFModels, nw::Int, f_idx::Tuple{Int,Int,Int})::Nothing
+    Psw = var(pm, nw, :Psw, f_idx)
+    Qsw = var(pm, nw, :Qsw, f_idx)
+
+    JuMP.@constraint(pm.model, Psw .== 0.0)
+    JuMP.@constraint(pm.model, Qsw .== 0.0)
+end
+
+
+function constraint_mc_switch_state_closed(pm::SOCUBFModels, nw::Int, f_bus::Int, t_bus::Int, f_connections::Vector{Int}, t_connections::Vector{Int})
+    Wr_fr = var(pm, nw, :Wr, f_bus)
+    Wr_to = var(pm, nw, :Wr, t_bus)
+
+    Wi_fr = var(pm, nw, :Wi, f_bus)
+    Wi_to = var(pm, nw, :Wi, t_bus)
+
+    for (f_idx,fc) in enumerate(f_connections)
+        for (t_idx,tc) in enumerate(t_connections)
+            JuMP.@constraint(pm.model, Wr_fr[fc,tc] == Wr_to[fc,tc])
+            JuMP.@constraint(pm.model, Wi_fr[fc,tc] == Wi_to[fc,tc])
+        end
+    end
+end

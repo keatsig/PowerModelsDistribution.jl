@@ -49,6 +49,16 @@ eng["switch"]["ohline"]["length"] = 1.0
             @test all(isapprox.(calc_vm_w(result, bus), vm; atol=1e-3))
         end
     end
+
+    @testset "3-bus balanced switch closed opf soc" begin
+        apply_voltage_bounds!(eng; vm_lb=0.95, vm_ub=1.05)
+        result = solve_mc_opf(eng, SOCConicUBFPowerModel, scs_solver; solution_processors=[sol_data_model!], make_si=false)
+
+        @test result["termination_status"] == OPTIMAL || result["termination_status"] == ALMOST_OPTIMAL
+        for (bus, vm) in zip(["sourcebus", "primary", "loadbus"], [0.9959, 0.987107, 0.976797])
+            @test all(isapprox.(result["solution"]["bus"][bus]["vm"], vm; atol=1e-3))
+        end
+     end
 end
 
 @testset "test switch pf" begin
