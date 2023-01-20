@@ -49,6 +49,16 @@ eng["switch"]["ohline"]["length"] = 1.0
             @test all(isapprox.(calc_vm_w(result, bus), vm; atol=1e-3))
         end
     end
+
+    @testset "3-bus balanced switch closed opf soc" begin
+        result = solve_mc_opf(eng, SOCConicUBFPowerModel, scs_solver; make_si=false)
+
+         @test result["termination_status"] == LOCALLY_SOLVED
+         for (bus, va, vm) in zip(["sourcebus", "primary", "loadbus"], [0.0, -0.032919, -0.0663864], [0.9959, 0.986973, 0.976606])
+             @test all(isapprox.(result["solution"]["bus"][bus]["va"], [0, -120, 120] .+ va; atol=0.2))
+             @test all(isapprox.(result["solution"]["bus"][bus]["vm"], vm; atol=1e-3))
+         end
+     end
 end
 
 @testset "test switch pf" begin
