@@ -219,6 +219,23 @@ function constraint_mc_transformer_power_dy(pm::SOCUBFModels, nw::Int, trans_id:
 end
 
 
+function constraint_mc_switch_state(pm::SOCUBFModels, i::Int; nw::Int=nw_id_default)::Nothing
+    switch = ref(pm, nw, :switch, i)
+    f_bus = switch["f_bus"]
+    t_bus = switch["t_bus"]
+
+    f_idx = (i, f_bus, t_bus)
+
+    if switch["state"] != 0
+        constraint_mc_switch_state_closed(pm, nw, f_bus, t_bus, switch["f_connections"], switch["t_connections"])
+        constraint_mc_model_switch_current(pm, nw, i, f_bus, f_idx)
+    else
+        constraint_mc_switch_state_open(pm, nw, f_idx)
+    end
+    nothing
+end
+
+
 function constraint_mc_switch_state_open(pm::SOCUBFModels, nw::Int, f_idx::Tuple{Int,Int,Int})::Nothing
     Psw = var(pm, nw, :Psw, f_idx)
     Qsw = var(pm, nw, :Qsw, f_idx)
@@ -241,4 +258,63 @@ function constraint_mc_switch_state_closed(pm::SOCUBFModels, nw::Int, f_bus::Int
             JuMP.@constraint(pm.model, Wi_fr[fc,tc] == Wi_to[fc,tc])
         end
     end
+end
+
+
+function constraint_mc_model_switch_current(pm::SOCConicUBFModel, nw::Int, i::Int, f_bus::Int, f_idx::Tuple{Int,Int,Int})
+    switch = ref(pm, nw, :switch, f_idx[1])
+    f_connections = switch["f_connections"]
+    t_connections = switch["t_connections"]
+    bus = ref(pm, nw, :bus, f_bus)
+    terminals = bus["terminals"]
+
+    psw_fr = var(pm, nw, :Psw)[f_idx]
+    qsw_fr = var(pm, nw, :Qsw)[f_idx]
+
+    w_fr_re = var(pm, nw, :Wr, f_bus)[[findfirst(isequal(fc), terminals) for fc in f_connections],[findfirst(isequal(tc), terminals) for tc in t_connections]]
+    w_fr_im = var(pm, nw, :Wi, f_bus)[[findfirst(isequal(fc), terminals) for fc in f_connections],[findfirst(isequal(tc), terminals) for tc in t_connections]]
+
+    ccm_re =  var(pm, nw, :CCr)[i]
+    ccm_im =  var(pm, nw, :CCi)[i]
+
+    mat_real = [
+    w_fr_re     psw_fr  ;
+    psw_fr'    ccm_re  ;
+    ]
+
+    mat_imag = [
+    w_fr_im     qsw_fr  ;
+    -qsw_fr'    ccm_im  ;
+    ]
+
+    relaxation_psd_to_soc(pm.model, mat_real, mat_imag, complex=true)
+end
+
+function constraint_mc_model_switch_current(pm::SOCConicUBFModel, nw::Int, i::Int, f_bus::Int, f_idx::Tuple{Int,Int,Int})
+    switch = ref(pm, nw, :switch, f_idx[1])
+    f_connections = switch["f_connections"]
+    t_connections = switch["t_connections"]
+    bus = ref(pm, nw, :bus, f_bus)
+    terminals = bus["terminals"]
+
+    psw_fr = var(pm, nw, :Psw)[f_idx]
+    qsw_fr = var(pm, nw, :Qsw)[f_idx]
+
+    w_fr_re = var(pm, nw, :Wr, f_bus)[[findfirst(isequal(fc), terminals) for fc in f_connections],[findfirst(isequal(tc), terminals) for tc in t_connections]]
+    w_fr_im = var(pm, nw, :Wi, f_bus)[[findfirst(isequal(fc), terminals) for fc in f_connections],[findfirst(isequal(tc), terminals) for tc in t_connections]]
+
+    ccm_re =  var(pm, nw, :CCr)[i]
+    ccm_im =  var(pm, nw, :CCi)[i]
+
+    mat_real = [
+    w_fr_re     psw_fr  ;
+    psw_fr'    ccm_re  ;
+    ]
+
+    mat_imag = [
+    w_fr_im     qsw_fr  ;
+    -qsw_fr'    ccm_im  ;
+    ]
+
+    relaxation_psd_to_soc_conic(pm.model, mat_real, mat_imag, complex=true)
 end
